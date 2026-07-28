@@ -134,7 +134,7 @@ export async function createQwenStream(
   const payload = {
     stream: true, version: '2.1', incremental_output: true,
     chat_id: chatId, chat_mode: 'normal', model, parent_id: actualParentId,
-    max_tokens: 32768,
+    max_tokens: 131072,
     messages: [{
       fid, parentId: actualParentId, childrenIds: [], role: 'user', content: prompt,
       user_action: 'chat', files: [], timestamp: ts, models: [model], chat_type: 't2t',
