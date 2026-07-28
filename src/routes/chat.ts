@@ -125,7 +125,7 @@ export async function chatCompletions(c: Context) {
     const finalPrompt = systemPrompt ? `${systemPrompt}\n${prompt}` : prompt;
     const isThinkingModel = !body.model.includes('no-thinking');
     const isNewSession = newSession || !messages.some((m: any) => m.role === 'assistant');
-    const maxTokens = (body as any).max_tokens || undefined;
+    const maxTokens = (body as any).max_tokens || 16384;
 
     // ── Retry loop ────────────────────────────────────────────────
     const releaseLock = await getSessionMutex(sessionId).acquire();
