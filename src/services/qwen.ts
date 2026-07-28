@@ -3,7 +3,7 @@
  * Suporte a múltiplas sessões isoladas (main agent + subagents).
  */
 
-import { getCookies, getUserAgent, getActiveChatId, setActiveChatId, getActiveParentId, setActiveParentId } from './playwright.ts';
+import { getCookies, getUserAgent, getActiveChatId, setActiveChatId, getActiveParentId, setActiveParentId, rotateAccount, getActiveAccountEmail } from './playwright.ts';
 import { v4 as uuidv4 } from 'uuid';
 
 export class RetryableQwenStreamError extends Error {
@@ -147,6 +147,12 @@ export async function createQwenStream(
           throw new RetryableQwenStreamError(`Qwen: ${details}`, 2000 + Math.floor(Math.random() * 2000));
         if (err.success === false) {
           const code = err.data?.code || 'UpstreamError';
+          if (code === 'RateLimited') {
+            console.warn('[Qwen] Rate limited! Rotating account...');
+            if (rotateAccount()) {
+              throw new RetryableQwenStreamError('Rate limited — account rotated. Retry.', 1000);
+            }
+          }
           throw new QwenUpstreamError(`Qwen: ${code}: ${details}`, code, code === 'RateLimited' ? 429 : 502);
         }
       } catch (e) { if (e instanceof RetryableQwenStreamError || e instanceof QwenUpstreamError) throw e; }

@@ -14,6 +14,12 @@ let context: BrowserContext | null = null;
 export let activePage: Page | null = null;
 let sessionCookie = '';
 let sessionUserAgent = '';
+let currentAccountIndex = 0;
+
+// Multi-account support
+interface QwenAccount { email: string; password: string; }
+let accounts: QwenAccount[] = [];
+let activeAccount: QwenAccount | null = null;
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 const SESSION_FILE = path.resolve('qwen_profile', 'session.json');
@@ -175,10 +181,41 @@ async function checkValidSession(): Promise<boolean> {
 }
 
 async function attemptAutoLogin(): Promise<void> {
-  const email = process.env.QWEN_EMAIL;
-  const password = process.env.QWEN_PASSWORD;
-  if (!email || !password) { console.warn('[Session] No credentials. Manual login needed.'); return; }
-  console.log('[Session] Logging in via API...');
+  // Collect all accounts from env
+  accounts = [];
+  if (process.env.QWEN_EMAIL && process.env.QWEN_PASSWORD) {
+    accounts.push({ email: process.env.QWEN_EMAIL, password: process.env.QWEN_PASSWORD });
+  }
+  for (let i = 2; i <= 10; i++) {
+    const email = process.env[`QWEN_EMAIL_${i}`];
+    const password = process.env[`QWEN_PASSWORD_${i}`];
+    if (email && password) accounts.push({ email, password });
+    else break;
+  }
+
+  if (accounts.length === 0) {
+    console.warn('[Session] No credentials. Manual login needed.');
+    return;
+  }
+
+  console.log(`[Session] ${accounts.length} account(s) configured.`);
+
+  for (let i = 0; i < accounts.length; i++) {
+    const account = accounts[i];
+    console.log(`[Session] Trying login: ${account.email}...`);
+    const ok = await tryLogin(account.email, account.password);
+    if (ok) {
+      currentAccountIndex = i;
+      activeAccount = account;
+      return;
+    }
+    console.warn(`[Session] Login failed for ${account.email}, trying next...`);
+  }
+
+  console.error('[Session] All accounts failed to login.');
+}
+
+async function tryLogin(email: string, password: string): Promise<boolean> {
   const hp = crypto.createHash('sha256').update(password).digest('hex');
   await activePage!.goto('https://chat.qwen.ai/auth', { waitUntil: 'domcontentloaded' });
   await sleep(2000);
@@ -190,14 +227,15 @@ async function attemptAutoLogin(): Promise<void> {
     });
     return r.ok;
   }, { email, password: hp });
-  if (!ok) { console.error('[Session] Login failed.'); return; }
+  if (!ok) return false;
   await activePage!.goto('https://chat.qwen.ai/', { waitUntil: 'domcontentloaded' });
   await sleep(3000);
   const cookies = await activePage!.context().cookies();
   sessionCookie = cookies.map(c => `${c.name}=${c.value}`).join('; ');
   sessionUserAgent = await activePage!.evaluate(() => navigator.userAgent);
   saveLoginState();
-  console.log('[Session] Logged in and saved.');
+  console.log(`[Session] Logged in as ${email}.`);
+  return true;
 }
 
 // ─── Session API ────────────────────────────────────────────────────
@@ -222,8 +260,20 @@ export function setActiveParentId(parentId: string | null, sessionId?: string) {
   saveLoginState();
 }
 
-export function getSessionHeaders(): Record<string, string> {
-  return { cookie: sessionCookie, 'user-agent': sessionUserAgent };
+export function rotateAccount(): boolean {
+  if (accounts.length <= 1) return false;
+  currentAccountIndex = (currentAccountIndex + 1) % accounts.length;
+  const next = accounts[currentAccountIndex];
+  console.log(`[Session] Rotating to account: ${next.email}`);
+  // Clear session to force fresh login with new account
+  sessionCookie = '';
+  activeAccount = null;
+  saveLoginState();
+  return true;
+}
+
+export function getActiveAccountEmail(): string | null {
+  return activeAccount?.email || null;
 }
 
 export function listSessions(): Record<string, { chatId: string | null; createdAt: number; lastUsed: number }> {
