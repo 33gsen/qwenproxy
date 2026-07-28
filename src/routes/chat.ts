@@ -128,10 +128,10 @@ export async function chatCompletions(c: Context) {
       if (bodyAny.tool_choice?.function?.name) systemPrompt += `CRITICAL: Call "${bodyAny.tool_choice.function.name}" now.\n\n`;
     }
 
-    const finalPrompt = systemPrompt ? `${systemPrompt}\n${prompt}` : prompt;
     const isThinkingModel = !body.model.includes('no-thinking');
     const isNewSession = newSession || !messages.some((m: any) => m.role === 'assistant');
     const maxTokens = (body as any).max_tokens || 16384;
+    const finalPrompt = systemPrompt ? `${systemPrompt}\n${prompt}` : prompt;
 
     // ── Retry loop ────────────────────────────────────────────────
     const releaseLock = await getSessionMutex(sessionId).acquire();
@@ -206,11 +206,17 @@ export async function chatCompletions(c: Context) {
               if (delta.phase === 'thinking_summary') {
                 const thoughts = delta.extra?.summary_thought?.content;
                 if (thoughts?.length > currentThoughtIndex) {
-                  reasoningBuffer += thoughts.slice(currentThoughtIndex).join('\\n');
+                  reasoningBuffer += thoughts.slice(currentThoughtIndex).join('\n');
                   currentThoughtIndex = thoughts.length;
                 }
+              } else if (delta.phase === 'think') {
+                // Full thinking: delta.content is cumulative reasoning text
+                if (delta.content !== undefined) {
+                  const result = getIncrementalDelta(reasoningBuffer, delta.content || '');
+                  if (result.delta) reasoningBuffer = result.matchedContent;
+                }
               } else if (delta.content !== undefined) {
-                // Process ALL non-thinking content (includes 'answer' phase and no-phase chunks)
+                // Process ALL non-thinking content (answer phase and no-phase chunks)
                 const result = getIncrementalDelta(lastFullContent, delta.content || '');
                 if (result.delta) {
                   lastFullContent = result.matchedContent;
@@ -304,6 +310,15 @@ export async function chatCompletions(c: Context) {
                     reasoningBuffer += t;
                     await writeEvent({ id: completionId, object: 'chat.completion.chunk', created: Math.floor(Date.now() / 1000), model: body.model, choices: [makeChoice({ reasoning_content: t })] });
                   }
+                } else if (delta.phase === 'think') {
+                  // Full thinking: delta.content is cumulative reasoning text
+                  if (delta.content !== undefined) {
+                    const result = getIncrementalDelta(reasoningBuffer, delta.content || '');
+                    if (result.delta) {
+                      reasoningBuffer = result.matchedContent;
+                      await writeEvent({ id: completionId, object: 'chat.completion.chunk', created: Math.floor(Date.now() / 1000), model: body.model, choices: [makeChoice({ reasoning_content: result.delta })] });
+                    }
+                  }
                 } else if (delta.content !== undefined) {
                   const result = getIncrementalDelta(lastFullContent, delta.content || '');
                   if (result.delta) {
@@ -319,6 +334,11 @@ export async function chatCompletions(c: Context) {
             } catch {}
           }
         }
+        
+        // Emit final chunk with finish_reason so Hermes knows stream completed cleanly
+        const hasToolCalls = toolParser.getEmittedToolCallCount() > 0;
+        await writeEvent({ id: completionId, object: 'chat.completion.chunk', created: Math.floor(Date.now() / 1000), model: body.model, choices: [makeChoice({}, hasToolCalls ? 'tool_calls' : 'stop')] });
+        await writer.write('data: [DONE]\n\n');
       } finally {
         clearInterval(heartbeat);
         releaseLock();

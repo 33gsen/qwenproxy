@@ -12,7 +12,7 @@
     "login:firefox": "npx tsx src/login.ts --browser=firefox",
     "login:chrome": "npx tsx src/login.ts --browser=chrome",
     "login:edge": "npx tsx src/login.ts --browser=edge",
-    "test": "tsx --test src/**/*.test.ts"
+    "test": "npx tsx --test src/**/*.test.ts"
   },
   "keywords": [],
   "author": "Pedro Farias",
