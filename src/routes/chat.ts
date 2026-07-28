@@ -119,6 +119,7 @@ export async function chatCompletions(c: Context) {
     const finalPrompt = systemPrompt ? `${systemPrompt}\n${prompt}` : prompt;
     const isThinkingModel = !body.model.includes('no-thinking');
     const isNewSession = newSession || !messages.some((m: any) => m.role === 'assistant');
+    const maxTokens = (body as any).max_tokens || undefined;
 
     // ── Retry loop ────────────────────────────────────────────────
     const releaseLock = await getSessionMutex(sessionId).acquire();
@@ -132,7 +133,7 @@ export async function chatCompletions(c: Context) {
 
     while (retries > 0) {
       try {
-        const result = await createQwenStream(finalPrompt, isThinkingModel, body.model, isNewSession ? null : undefined, sessionId);
+        const result = await createQwenStream(finalPrompt, isThinkingModel, body.model, isNewSession ? null : undefined, sessionId, maxTokens);
         stream = result.stream;
         uiSessionId = result.uiSessionId;
         break;

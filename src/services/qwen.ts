@@ -115,6 +115,7 @@ export async function createQwenStream(
   modelId: string,
   forcedParentId?: string | null,
   sessionId?: string,
+  maxTokens?: number,
 ): Promise<{ stream: ReadableStream; headers: Record<string, string>; uiSessionId: string }> {
   const cookie = await getCookies();
   const ua = await getUserAgent();
@@ -131,17 +132,18 @@ export async function createQwenStream(
   const ts = Math.floor(Date.now() / 1000);
   const fid = uuidv4();
 
-  const payload = {
+  const payload: any = {
     stream: true, version: '2.1', incremental_output: true,
     chat_id: chatId, chat_mode: 'normal', model, parent_id: actualParentId,
     messages: [{
       fid, parentId: actualParentId, childrenIds: [], role: 'user', content: prompt,
       user_action: 'chat', files: [], timestamp: ts, models: [model], chat_type: 't2t',
-      feature_config: { thinking_enabled: enableThinking, output_schema: 'phase', research_mode: 'normal', auto_thinking: false, thinking_mode: 'Thinking', thinking_format: 'summary', auto_search: false },
+      feature_config: { thinking_enabled: enableThinking, output_schema: 'phase', research_mode: 'normal', auto_thinking: true, thinking_mode: 'Auto', thinking_format: 'stream', auto_search: false },
       extra: { meta: { subChatType: 't2t' } }, sub_chat_type: 't2t', parent_id: actualParentId,
     }],
     timestamp: ts + 1,
   };
+  if (maxTokens) payload.max_tokens = maxTokens;
 
   const tz = new Date().toString().split(' (')[0];
   const controller = new AbortController();
