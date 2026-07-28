@@ -55,6 +55,7 @@ export async function chatCompletions(c: Context) {
   try {
     const body: OpenAIRequest = await c.req.json();
     const isStream = body.stream ?? false;
+    console.log('[Chat] Tools in request:', (body as any).tools?.length || 0, '| Model:', body.model, '| Messages:', body.messages?.length);
 
     // Session management via headers
     let sessionId = c.req.header('X-Session-Id') || 'main';
@@ -111,7 +112,7 @@ export async function chatCompletions(c: Context) {
     // ── Inject tools ──────────────────────────────────────────────
     const bodyAny = body as any;
     if (bodyAny.tools?.length > 0) {
-      const formatted = bodyAny.tools.map((t: any) => t.type === 'function' ? { name: t.function.name, description: t.function.description || '', parameters: t.function.parameters } : t);
+      const formatted = bodyAny.tools.map((t: any) => t.type === 'function' ? { name: t.function.name, description: (t.function.description || '').substring(0, 120) } : t);
       systemPrompt += `\n\n# TOOLS\n${JSON.stringify(formatted, null, 2)}\n\n# FORMAT\nUse <tool_call>{"name":"x","arguments":{...}}</tool_call> to call tools. Call multiple with multiple blocks. Wait for results.\n\n`;
       if (bodyAny.tool_choice?.function?.name) systemPrompt += `CRITICAL: Call "${bodyAny.tool_choice.function.name}" now.\n\n`;
     }
