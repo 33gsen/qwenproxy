@@ -14,6 +14,28 @@ Proxy API local compatível com OpenAI que roteia requisições para os modelos 
 
 ---
 
+## ⚡ Por que este fork é mais rápido
+
+O qwenproxy original usa **interceptação de navegador** — digita texto, clica em "Enviar", espera a API do Qwen disparar, e captura headers anti-bot (`bx-ua`, `bx-umidtoken`, `bx-v`). Isso leva **5-10 segundos por request** e quebra toda vez que o Qwen muda o CSS da página.
+
+**Este fork elimina esse ritual.** O login é feito **1 vez** via `POST /api/v2/auths/signin` com email + senha. O cookie de sessão volta e é usado em **todas as chamadas seguintes** — sem precisar de `bx-*`, sem interagir com a página, sem depender de seletores CSS.
+
+```
+┌─────────────────────────────────────────────────────┐
+│ ANTES (original):                                   │
+│ Browser → digita → clica → intercepta → USA headers │
+│ Tempo: 5-10s por request. Frágil (CSS-dependente).  │
+├─────────────────────────────────────────────────────┤
+│ AGORA (este fork):                                  │
+│ Login 1x via API → cookie salvo → chamadas diretas  │
+│ Tempo: ~1s por request. Zero dependência de UI.     │
+└─────────────────────────────────────────────────────┘
+```
+
+**Headers necessários (só isso):** `cookie`, `user-agent`, `version`, `timezone`, `source: web`. Nada de `bx-ua` ou `bx-umidtoken`. O segredo foi descobrir que o Qwen não exige esses headers quando o combo certo de headers normais está presente.
+
+---
+
 ## ✨ Features
 
 - **OpenAI API Compatible**: Interface compatível com `/v1/chat/completions` e `/v1/models`.
