@@ -138,7 +138,7 @@ export async function createQwenStream(
     messages: [{
       fid, parentId: actualParentId, childrenIds: [], role: 'user', content: prompt,
       user_action: 'chat', files: [], timestamp: ts, models: [model], chat_type: 't2t',
-      feature_config: { thinking_enabled: enableThinking, output_schema: 'phase', research_mode: 'normal', auto_thinking: true, thinking_mode: 'Auto', thinking_format: 'stream', auto_search: false },
+      feature_config: { thinking_enabled: true, output_schema: 'phase', research_mode: 'normal', auto_thinking: true, thinking_mode: 'Auto', thinking_format: 'stream', auto_search: false },
       extra: { meta: { subChatType: 't2t' } }, sub_chat_type: 't2t', parent_id: actualParentId,
     }],
     timestamp: ts + 1,

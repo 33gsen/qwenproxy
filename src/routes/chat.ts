@@ -293,7 +293,7 @@ export async function chatCompletions(c: Context) {
                     reasoningBuffer += t;
                     await writeEvent({ id: completionId, object: 'chat.completion.chunk', created: Math.floor(Date.now() / 1000), model: body.model, choices: [makeChoice({ reasoning_content: t })] });
                   }
-                } else if (delta.phase === 'answer' && delta.content !== undefined) {
+                } else if (delta.content !== undefined) {
                   const result = getIncrementalDelta(lastFullContent, delta.content || '');
                   if (result.delta) {
                     lastFullContent = result.matchedContent;
