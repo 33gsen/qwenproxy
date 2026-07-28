@@ -195,10 +195,11 @@ export async function chatCompletions(c: Context) {
               if (delta.phase === 'thinking_summary') {
                 const thoughts = delta.extra?.summary_thought?.content;
                 if (thoughts?.length > currentThoughtIndex) {
-                  reasoningBuffer += thoughts.slice(currentThoughtIndex).join('\n');
+                  reasoningBuffer += thoughts.slice(currentThoughtIndex).join('\\n');
                   currentThoughtIndex = thoughts.length;
                 }
-              } else if (delta.phase === 'answer' && delta.content !== undefined) {
+              } else if (delta.content !== undefined) {
+                // Process ALL non-thinking content (includes 'answer' phase and no-phase chunks)
                 const result = getIncrementalDelta(lastFullContent, delta.content || '');
                 if (result.delta) {
                   lastFullContent = result.matchedContent;
