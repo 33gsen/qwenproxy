@@ -112,8 +112,11 @@ export async function chatCompletions(c: Context) {
     // ── Inject tools ──────────────────────────────────────────────
     const bodyAny = body as any;
     if (bodyAny.tools?.length > 0) {
-      const MAX_TOOLS = 12;
-      const toolsToShow = bodyAny.tools.slice(0, MAX_TOOLS);
+      const MAX_TOOLS = 15;
+      const PRIORITY = ['terminal', 'read_file', 'write_file', 'patch', 'search_files', 'execute_code', 'process', 'browser_navigate', 'browser_snapshot', 'delegate_task', 'todo', 'skill_view'];
+      const priorityTools = bodyAny.tools.filter((t: any) => PRIORITY.includes(t.function?.name));
+      const otherTools = bodyAny.tools.filter((t: any) => !PRIORITY.includes(t.function?.name));
+      const toolsToShow = [...priorityTools, ...otherTools].slice(0, MAX_TOOLS);
       const formatted = toolsToShow.map((t: any) => t.type === 'function' ? { name: t.function.name, description: (t.function.description || '').substring(0, 100) } : t);
       systemPrompt += `\n\n# TOOLS (${bodyAny.tools.length} available, showing ${MAX_TOOLS})\n${JSON.stringify(formatted, null, 2)}\n\n# FORMAT\nUse <tool_call>{"name":"x","arguments":{...}}</tool_call> to call tools. Call multiple with multiple blocks. Wait for results.\n\n`;
       if (bodyAny.tool_choice?.function?.name) systemPrompt += `CRITICAL: Call "${bodyAny.tool_choice.function.name}" now.\n\n`;
