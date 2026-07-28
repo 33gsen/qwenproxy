@@ -1,6 +1,11 @@
-# QwenProxy
+# QwenProxy → Hermes Agent Edition
 
-Proxy API local compatível com OpenAI que roteia requisições para os modelos do **Qwen (chat.qwen.ai)** via automação de navegador com Playwright. Oferece suporte a execução de ferramentas, modo de pensamento (reasoning) e persistência de sessão.
+> **Autor original:** [Pedro Farias](https://github.com/pedrofariasx) — [qwenproxy](https://github.com/pedrofariasx/qwenproxy)  
+> **Adaptado por:** Angelo (entusiasta) — para uso com [Hermes Agent](https://github.com/NousResearch/hermes-agent) da [Nous Research](https://nousresearch.com)  
+>  
+> ⚠️ **Este fork é EXCLUSIVO para o Hermes Agent.** Foi profundamente modificado para suporte a agentes autônomos, múltiplas sessões isoladas, e tool calling. **Não é compatível com o qwenproxy original.** Para a versão geral, use o [repositório oficial do Pedro](https://github.com/pedrofariasx/qwenproxy).
+
+Proxy API local compatível com OpenAI que roteia requisições para os modelos do **Qwen (chat.qwen.ai)**. Adaptado para agentes autônomos com sessões isoladas, suporte a subagentes, e tool calling.
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue)](https://www.typescriptlang.org/)
 [![Hono](https://img.shields.io/badge/Hono-4.12-green)](https://hono.dev/)
