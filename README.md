@@ -1,7 +1,7 @@
 # QwenProxy → Hermes Agent Edition
 
 > **Autor original:** [Pedro Farias](https://github.com/pedrofariasx) — [qwenproxy](https://github.com/pedrofariasx/qwenproxy)  
-> **Adaptado por:** Angelo (entusiasta) — para uso com [Hermes Agent](https://github.com/NousResearch/hermes-agent) da [Nous Research](https://nousresearch.com)  
+> **Adaptado por:** Guilherme (33gsen) — para uso com [Hermes Agent](https://github.com/NousResearch/hermes-agent) da [Nous Research](https://nousresearch.com)  
 >  
 > ⚠️ **Este fork é EXCLUSIVO para o Hermes Agent.** Foi profundamente modificado para suporte a agentes autônomos, múltiplas sessões isoladas, e tool calling. **Não é compatível com o qwenproxy original.** Para a versão geral, use o [repositório oficial do Pedro](https://github.com/pedrofariasx/qwenproxy).
 
