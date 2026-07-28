@@ -128,10 +128,25 @@ export async function chatCompletions(c: Context) {
       if (bodyAny.tool_choice?.function?.name) systemPrompt += `CRITICAL: Call "${bodyAny.tool_choice.function.name}" now.\n\n`;
     }
 
-    const finalPrompt = systemPrompt ? `${systemPrompt}\n${prompt}` : prompt;
     const isThinkingModel = !body.model.includes('no-thinking');
     const isNewSession = newSession || !messages.some((m: any) => m.role === 'assistant');
     const maxTokens = (body as any).max_tokens || 16384;
+
+    // ── Build final prompt ─────────────────────────────────────────
+    // Se já existe chat (não é newSession), Qwen mantém histórico.
+    // Enviar só a última mensagem evita re-trigger do thinking completo.
+    let finalPrompt: string;
+    if (!isNewSession && messages.length >= 2) {
+      const lastMsg = messages[messages.length - 1];
+      let lastContent = '';
+      if (typeof lastMsg.content === 'string') lastContent = lastMsg.content;
+      else if (Array.isArray(lastMsg.content)) lastContent = lastMsg.content.map((c: any) => c.text || JSON.stringify(c)).join('\\n');
+      finalPrompt = lastMsg.role === 'tool' || lastMsg.role === 'function'
+        ? `Tool result: ${lastContent}`
+        : `User: ${lastContent}`;
+    } else {
+      finalPrompt = systemPrompt ? `${systemPrompt}\n${prompt}` : prompt;
+    }
 
     // ── Retry loop ────────────────────────────────────────────────
     const releaseLock = await getSessionMutex(sessionId).acquire();
