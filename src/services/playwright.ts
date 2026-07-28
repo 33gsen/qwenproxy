@@ -260,16 +260,19 @@ export function setActiveParentId(parentId: string | null, sessionId?: string) {
   saveLoginState();
 }
 
-export function rotateAccount(): boolean {
+export async function rotateAccount(): Promise<boolean> {
   if (accounts.length <= 1) return false;
   currentAccountIndex = (currentAccountIndex + 1) % accounts.length;
   const next = accounts[currentAccountIndex];
   console.log(`[Session] Rotating to account: ${next.email}`);
-  // Clear session to force fresh login with new account
-  sessionCookie = '';
-  activeAccount = null;
-  saveLoginState();
-  return true;
+  // Re-login with the new account
+  const ok = await tryLogin(next.email, next.password);
+  if (ok) {
+    activeAccount = next;
+    return true;
+  }
+  console.error(`[Session] Rotation failed: could not login as ${next.email}`);
+  return false;
 }
 
 export function getActiveAccountEmail(): string | null {

@@ -138,6 +138,13 @@ export async function createQwenStream(
 
   if (!response.ok || !response.body) {
     const errText = await response.text().catch(() => '');
+    // Detect rate limit in any response (JSON or not)
+    if (errText.toLowerCase().includes('ratelimit') || errText.toLowerCase().includes('rate limit') || errText.toLowerCase().includes('upper limit')) {
+      console.warn('[Qwen] Rate limited! Rotating account...');
+      if (await rotateAccount()) {
+        throw new RetryableQwenStreamError('Rate limited — account rotated. Retry.', 1000);
+      }
+    }
     const ct = response.headers.get('content-type') || '';
     if (ct.includes('application/json')) {
       try {
@@ -149,7 +156,7 @@ export async function createQwenStream(
           const code = err.data?.code || 'UpstreamError';
           if (code === 'RateLimited') {
             console.warn('[Qwen] Rate limited! Rotating account...');
-            if (rotateAccount()) {
+            if (await rotateAccount()) {
               throw new RetryableQwenStreamError('Rate limited — account rotated. Retry.', 1000);
             }
           }
