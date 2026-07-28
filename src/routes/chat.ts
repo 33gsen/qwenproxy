@@ -36,16 +36,20 @@ function getIncrementalDelta(oldStr: string, newStr: string): { delta: string; m
   return { delta: newStr, matchedContent: oldStr + newStr };
 }
 
-function parseQwenErrorPayload(raw: string): { message: string; status: number } | null {
+function parseQwenErrorPayload(raw: string): { message: string; status: number; isRateLimit: boolean } | null {
   const text = raw.trim();
   if (!text || text.startsWith('data: ')) return null;
   try {
     const p = JSON.parse(text);
     if (p?.success === false) {
       const code = p.data?.code || 'UpstreamError';
-      return { message: `Qwen: ${code}: ${p.data?.details || p.message}`, status: code === 'RateLimited' ? 429 : 502 };
+      return { message: `Qwen: ${code}: ${p.data?.details || p.message}`, status: code === 'RateLimited' ? 429 : 502, isRateLimit: code === 'RateLimited' };
     }
   } catch {}
+  // Check raw text for rate limit
+  if (text.toLowerCase().includes('ratelimit') || text.toLowerCase().includes('rate limit') || text.toLowerCase().includes('upper limit')) {
+    return { message: `Qwen: RateLimited: ${text.substring(0, 100)}`, status: 429, isRateLimit: true };
+  }
   return null;
 }
 
@@ -212,7 +216,22 @@ export async function chatCompletions(c: Context) {
       }
 
       const upstreamErr = parseQwenErrorPayload(buffer);
-      if (upstreamErr) { releaseLock(); return c.json({ error: { message: upstreamErr.message } }, upstreamErr.status as any); }
+      if (upstreamErr) {
+        // If rate limited, try rotation instead of failing immediately
+        if (upstreamErr.isRateLimit && retries > 0) {
+          console.warn(`[Chat:${sessionId}] Rate limit in stream. Rotating...`);
+          const { rotateAccount } = await import('../services/playwright.ts');
+          const { setActiveChatId } = await import('../services/playwright.ts');
+          if (await rotateAccount()) {
+            setActiveChatId(null, sessionId);
+            retries--;
+            await new Promise(r => setTimeout(r, 5000));
+            // Retry will create new chat on new account
+            continue; // jump back to retry loop
+          }
+        }
+        releaseLock(); return c.json({ error: { message: upstreamErr.message } }, upstreamErr.status as any);
+      }
 
       const flushed = toolParser.flush();
       if (flushed.text) lastFullContent += flushed.text;
