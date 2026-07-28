@@ -70,9 +70,10 @@ async function createChat(sessionId?: string): Promise<string> {
       catch { return { ok: false, body: t.substring(0, 200) }; }
     });
     if (result.ok && result.id) { setActiveChatId(result.id, sessionId); return result.id; }
+    console.log('[Qwen] Chat creation browser result:', JSON.stringify({ ok: result.ok, hasId: !!result.id, body: result.body?.substring(0, 150) }));
     // Rate limit in browser context
     if (result.body && (result.body.toLowerCase().includes('ratelimit') || result.body.toLowerCase().includes('rate limit') || result.body.toLowerCase().includes('upper limit'))) {
-      console.warn('[Qwen] Rate limited on chat creation (browser). Rotating...');
+      console.log('[Qwen] Rate limited on chat creation (browser). Rotating...');
       if (await rotateAccount()) {
         setActiveChatId(null, sessionId);
         throw new RetryableQwenStreamError('Rate limited on chat creation — account rotated. Retry.', 1000);
