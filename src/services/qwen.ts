@@ -134,7 +134,7 @@ export async function createQwenStream(
   const payload = {
     stream: true, version: '2.1', incremental_output: true,
     chat_id: chatId, chat_mode: 'normal', model, parent_id: actualParentId,
-    max_tokens: 131072,
+    max_tokens: 999999,
     messages: [{
       fid, parentId: actualParentId, childrenIds: [], role: 'user', content: prompt,
       user_action: 'chat', files: [], timestamp: ts, models: [model], chat_type: 't2t',
@@ -146,7 +146,7 @@ export async function createQwenStream(
 
   const tz = new Date().toString().split(' (')[0];
   const controller = new AbortController();
-  const tid = setTimeout(() => controller.abort(), 120000);
+  const tid = setTimeout(() => controller.abort(), 600000); // 10 min timeout
 
   const response = await fetch(`https://chat.qwen.ai/api/v2/chat/completions?chat_id=${chatId}`, {
     method: 'POST',
