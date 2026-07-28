@@ -142,6 +142,8 @@ export async function createQwenStream(
     if (errText.toLowerCase().includes('ratelimit') || errText.toLowerCase().includes('rate limit') || errText.toLowerCase().includes('upper limit')) {
       console.warn('[Qwen] Rate limited! Rotating account...');
       if (await rotateAccount()) {
+        // Clear all session chat_ids — they belong to the old account
+        setActiveChatId(null, sessionId);
         throw new RetryableQwenStreamError('Rate limited — account rotated. Retry.', 1000);
       }
     }
@@ -157,6 +159,7 @@ export async function createQwenStream(
           if (code === 'RateLimited') {
             console.warn('[Qwen] Rate limited! Rotating account...');
             if (await rotateAccount()) {
+              setActiveChatId(null, sessionId);
               throw new RetryableQwenStreamError('Rate limited — account rotated. Retry.', 1000);
             }
           }

@@ -128,6 +128,7 @@ export async function chatCompletions(c: Context) {
     let uiSessionId = '';
     let retries = 5;
     let delay = 2000;
+    let rotated = false;
 
     while (retries > 0) {
       try {
@@ -141,6 +142,7 @@ export async function chatCompletions(c: Context) {
         let d = delay;
         if (err instanceof RetryableQwenStreamError && err.retryAfterMs) d = err.retryAfterMs;
         if (err instanceof QwenUpstreamError && err.upstreamCode === 'RateLimited') {
+          rotated = true;
           await resetPlaywrightSession(sessionId).catch(() => {});
           d = 5000;
         }
@@ -224,6 +226,7 @@ export async function chatCompletions(c: Context) {
 
       releaseLock();
       c.header('X-Session-Id', sessionId);
+      if (rotated) c.header('X-Account-Rotated', 'true');
       return c.json({
         id: completionId, object: 'chat.completion', created: Math.floor(Date.now() / 1000),
         model: body.model, choices: [{ index: 0, message, logprobs: null, finish_reason: toolCallsOut.length ? 'tool_calls' : 'stop' }],
@@ -236,6 +239,7 @@ export async function chatCompletions(c: Context) {
     c.header('Cache-Control', 'no-cache');
     c.header('Connection', 'keep-alive');
     c.header('X-Session-Id', sessionId);
+    if (rotated) c.header('X-Account-Rotated', 'true');
 
     return honoStream(c, async (writer: any) => {
       let heartbeat: any;
