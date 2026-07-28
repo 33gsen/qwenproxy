@@ -144,6 +144,7 @@ export async function createQwenStream(
     timestamp: ts + 1,
   };
   if (maxTokens) payload.max_tokens = maxTokens;
+  console.log('[Qwen] Payload max_tokens:', payload.max_tokens, '| prompt_len:', prompt.length);
 
   const tz = new Date().toString().split(' (')[0];
   const controller = new AbortController();
