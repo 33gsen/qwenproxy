@@ -80,7 +80,17 @@ async function createChat(sessionId?: string): Promise<string> {
     headers: { 'accept': 'application/json', 'content-type': 'application/json', 'cookie': cookie, 'origin': 'https://chat.qwen.ai', 'referer': 'https://chat.qwen.ai/', 'user-agent': ua, 'x-request-id': uuidv4(), 'source': 'web', 'timezone': tz },
     body: JSON.stringify({ title: 'Agent Chat', models: ['qwen3.7-plus'], chat_mode: 'normal', chat_type: 't2t', timestamp: Date.now(), project_id: '' }),
   });
-  if (!r.ok) { const e = await r.text(); throw new Error(`Chat creation failed: ${r.status} ${e.substring(0, 200)}`); }
+  if (!r.ok) { const e = await r.text().catch(() => '');
+    // Rate limit on chat creation — rotate account
+    if (e.toLowerCase().includes('ratelimit') || e.toLowerCase().includes('rate limit') || e.toLowerCase().includes('upper limit')) {
+      console.warn('[Qwen] Rate limited on chat creation. Rotating...');
+      if (await rotateAccount()) {
+        setActiveChatId(null, sessionId);
+        throw new RetryableQwenStreamError('Rate limited on chat creation — account rotated. Retry.', 1000);
+      }
+    }
+    throw new Error(`Chat creation failed: ${r.status} ${e.substring(0, 200)}`);
+  }
   const d = await r.json();
   const id = d.data?.id || d.id || d.chat_id;
   if (!id) throw new Error('No chat_id');
