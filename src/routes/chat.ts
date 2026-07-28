@@ -121,6 +121,8 @@ export async function chatCompletions(c: Context) {
       const priorityTools = bodyAny.tools.filter((t: any) => PRIORITY.includes(t.function?.name));
       const otherTools = bodyAny.tools.filter((t: any) => !PRIORITY.includes(t.function?.name));
       const toolsToShow = [...priorityTools, ...otherTools].slice(0, MAX_TOOLS);
+      const showNames = toolsToShow.map((t: any) => t.function?.name || t.name).filter(Boolean);
+      console.log('[Chat] Tools shown to Qwen (15):', showNames.join(', '));
       const formatted = toolsToShow.map((t: any) => t.type === 'function' ? { name: t.function.name, description: (t.function.description || '').substring(0, 100) } : t);
       systemPrompt += `\n\n# TOOLS (${bodyAny.tools.length} available, showing ${MAX_TOOLS})\n${JSON.stringify(formatted, null, 2)}\n\n# FORMAT\nUse <tool_call>{"name":"x","arguments":{...}}</tool_call> to call tools. Call multiple with multiple blocks. Wait for results.\n\n`;
       if (bodyAny.tool_choice?.function?.name) systemPrompt += `CRITICAL: Call "${bodyAny.tool_choice.function.name}" now.\n\n`;
