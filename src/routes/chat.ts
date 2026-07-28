@@ -113,6 +113,10 @@ export async function chatCompletions(c: Context) {
     const bodyAny = body as any;
     if (bodyAny.tools?.length > 0) {
       const MAX_TOOLS = 15;
+      // Log all tool names to debug
+      const allNames = bodyAny.tools.map((t: any) => t.function?.name).filter(Boolean);
+      console.log('[Chat] Tool names (first 15):', allNames.slice(0, 15).join(', '));
+      console.log('[Chat] Tool names (last 5):', allNames.slice(-5).join(', '));
       const PRIORITY = ['terminal', 'read_file', 'write_file', 'patch', 'search_files', 'execute_code', 'process', 'browser_navigate', 'browser_snapshot', 'delegate_task', 'todo', 'skill_view'];
       const priorityTools = bodyAny.tools.filter((t: any) => PRIORITY.includes(t.function?.name));
       const otherTools = bodyAny.tools.filter((t: any) => !PRIORITY.includes(t.function?.name));
