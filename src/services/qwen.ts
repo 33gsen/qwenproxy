@@ -56,10 +56,16 @@ export async function fetchQwenModels(): Promise<any[]> {
 // ─── Chat creation ──────────────────────────────────────────────────
 
 async function createChat(sessionId?: string): Promise<string> {
+  if (process.env.TEST_MOCK_PLAYWRIGHT === 'true') {
+    const id = `mock-chat-${sessionId || 'main'}`;
+    setActiveChatId(id, sessionId);
+    return id;
+  }
+
   const { activePage } = await import('./playwright.ts');
   if (activePage && !activePage.isClosed()) {
     const title = sessionId && sessionId !== 'main' ? `Subagent ${sessionId}` : 'Agent Chat';
-    const result = await activePage.evaluate(async (title: string) => {
+    const result = await activePage.evaluate(async (title: any) => {
       const r = await fetch('https://chat.qwen.ai/api/v2/chats/new', {
         method: 'POST',
         headers: { 'accept': 'application/json', 'content-type': 'application/json', 'source': 'web', 'timezone': new Date().toString().split(' (')[0], 'x-request-id': window.crypto.randomUUID() },

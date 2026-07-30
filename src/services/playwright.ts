@@ -110,6 +110,15 @@ function loadLoginState(): boolean {
 // ─── Init / Login ───────────────────────────────────────────────────
 
 export async function initPlaywright(headless = true, browserType: BrowserType = 'chromium') {
+  // Testes unitários nunca devem abrir uma janela ou iniciar um processo
+  // Chromium. O modo mock usa o fallback HTTP do serviço Qwen e mantém os
+  // testes determinísticos, mesmo quando rodam em paralelo.
+  if (process.env.TEST_MOCK_PLAYWRIGHT === 'true') {
+    sessionCookie = '';
+    sessionUserAgent = 'Mozilla/5.0 (test)';
+    getSession(DEFAULT_SESSION);
+    return;
+  }
   if (context) return;
 
   const profilePath = path.resolve('qwen_profile');
@@ -129,11 +138,11 @@ export async function initPlaywright(headless = true, browserType: BrowserType =
     headless, channel,
     args: ['--no-sandbox', '--disable-blink-features=AutomationControlled'],
   });
-  await context.addInitScript(() => {
+  await context!.addInitScript(() => {
     Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
   });
 
-  activePage = await context.newPage();
+  activePage = await context!.newPage();
 
   if (loadLoginState()) {
     console.log('[Session] Loaded saved session from disk.');
@@ -142,7 +151,7 @@ export async function initPlaywright(headless = true, browserType: BrowserType =
       const [name, ...rest] = p.split('=');
       return { name, value: rest.join('='), domain: '.qwen.ai', path: '/' };
     });
-    await context.addCookies(cookies);
+    await context!.addCookies(cookies);
   }
 
   if (!(await checkValidSession())) {

@@ -25,7 +25,7 @@ function getSessionMutex(sid: string): Mutex {
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 
-function getIncrementalDelta(oldStr: string, newStr: string): { delta: string; matchedContent: string } {
+export function getIncrementalDelta(oldStr: string, newStr: string): { delta: string; matchedContent: string } {
   if (!oldStr) return { delta: newStr, matchedContent: newStr };
   if (newStr === oldStr) return { delta: '', matchedContent: oldStr };
   const scan = Math.min(2000, oldStr.length);
@@ -43,7 +43,7 @@ function parseQwenErrorPayload(raw: string): { message: string; status: number }
     const p = JSON.parse(text);
     if (p?.success === false) {
       const code = p.data?.code || 'UpstreamError';
-      return { message: `Qwen: ${code}: ${p.data?.details || p.message}`, status: code === 'RateLimited' ? 429 : 502 };
+      return { message: `Qwen upstream error: ${code}: ${p.data?.details || p.message}`, status: code === 'RateLimited' ? 429 : 502 };
     }
   } catch {}
   return null;
@@ -337,7 +337,7 @@ export async function chatCompletions(c: Context) {
         
         // Emit final chunk with finish_reason so Hermes knows stream completed cleanly
         const hasToolCalls = toolParser.getEmittedToolCallCount() > 0;
-        await writeEvent({ id: completionId, object: 'chat.completion.chunk', created: Math.floor(Date.now() / 1000), model: body.model, choices: [makeChoice({}, hasToolCalls ? 'tool_calls' : 'stop')] });
+        await writeEvent({ id: completionId, object: 'chat.completion.chunk', created: Math.floor(Date.now() / 1000), model: body.model, choices: [makeChoice({}, hasToolCalls ? 'tool_calls' : 'stop')], usage: { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: promptTokens + completionTokens, prompt_tokens_details: { cached_tokens: 0 } } });
         await writer.write('data: [DONE]\n\n');
       } finally {
         clearInterval(heartbeat);

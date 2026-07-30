@@ -21,6 +21,11 @@ export class SchemaValidationError extends Error {
   }
 }
 
+/** Backwards-compatible entry point used by the runtime tool executor. */
+export function validateParams(value: unknown, schema: JsonSchema): any {
+  return validateAgainstSchema(value, schema);
+}
+
 /**
  * Validates a value against a JSON Schema with strict type checking.
  * Throws SchemaValidationError on failure.

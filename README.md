@@ -1,11 +1,10 @@
-# QwenProxy → Hermes Agent Edition
+# QwenProxy
 
-> **Autor original:** [Pedro Farias](https://github.com/pedrofariasx) — [qwenproxy](https://github.com/pedrofariasx/qwenproxy)  
-> **Adaptado por:** Guilherme (33gsen) — para uso com [Hermes Agent](https://github.com/NousResearch/hermes-agent) da [Nous Research](https://nousresearch.com)  
->  
-> ⚠️ **Este fork é EXCLUSIVO para o Hermes Agent.** Foi profundamente modificado para suporte a agentes autônomos, múltiplas sessões isoladas, e tool calling. **Não é compatível com o qwenproxy original.** Para a versão geral, use o [repositório oficial do Pedro](https://github.com/pedrofariasx/qwenproxy).
+> An unofficial, self-hosted OpenAI-compatible gateway for Qwen Chat sessions.
+>
+> This project is an independent adaptation of [qwenproxy](https://github.com/pedrofariasx/qwenproxy). It is not affiliated with Qwen, Alibaba, or any upstream project.
 
-Proxy API local compatível com OpenAI que roteia requisições para os modelos do **Qwen (chat.qwen.ai)**. Adaptado para agentes autônomos com sessões isoladas, suporte a subagentes, e tool calling.
+QwenProxy exposes a small local API for OpenAI-compatible clients while keeping browser-backed Qwen sessions isolated per agent. It is designed as a focused systems project: session lifecycle, streaming translation, tool-call parsing, and safe local execution boundaries.
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue)](https://www.typescriptlang.org/)
 [![Hono](https://img.shields.io/badge/Hono-4.12-green)](https://hono.dev/)
@@ -14,11 +13,11 @@ Proxy API local compatível com OpenAI que roteia requisições para os modelos 
 
 ---
 
-## ⚡ Por que este fork é mais rápido
+## Design goals
 
 O qwenproxy original usa **interceptação de navegador** — digita texto, clica em "Enviar", espera a API do Qwen disparar, e captura headers anti-bot (`bx-ua`, `bx-umidtoken`, `bx-v`). Isso leva **5-10 segundos por request** e quebra toda vez que o Qwen muda o CSS da página.
 
-**Este fork elimina esse ritual.** O login é feito **1 vez** via `POST /api/v2/auths/signin` com email + senha. O cookie de sessão volta e é usado em **todas as chamadas seguintes** — sem precisar de `bx-*`, sem interagir com a página, sem depender de seletores CSS.
+The gateway authenticates once, reuses a scoped session cookie, and keeps the browser boundary in one service. API requests are translated into Qwen's streaming format without coupling the public interface to page selectors.
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -32,7 +31,7 @@ O qwenproxy original usa **interceptação de navegador** — digita texto, clic
 └─────────────────────────────────────────────────────┘
 ```
 
-**Headers necessários (só isso):** `cookie`, `user-agent`, `version`, `timezone`, `source: web`. Nada de `bx-ua` ou `bx-umidtoken`. O segredo foi descobrir que o Qwen não exige esses headers quando o combo certo de headers normais está presente.
+The upstream session is treated as an implementation detail. Credentials and browser profiles stay local and are never committed.
 
 ---
 

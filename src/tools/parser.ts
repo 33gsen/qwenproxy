@@ -186,10 +186,9 @@ export class StreamingToolParser {
         if (match && match.index !== undefined) {
           // Text before the tool call tag
           const textBefore = this.buffer.substring(0, match.index);
-          // Once a tool call appears, hold the lead-in text.
-          // OpenAI-compatible clients expect the whole assistant turn to be
-          // a structured tool_calls message when tools are invoked.
-          this.pendingLeadIn += textBefore;
+          // Preserve natural language before a tool call. Clients can render
+          // the lead-in while still receiving the structured tool call.
+          result.text += textBefore;
           this.insideTool = true;
           this.currentOpenTag = match[0];
           this.buffer = this.buffer.substring(match.index + match[0].length);
@@ -200,10 +199,9 @@ export class StreamingToolParser {
           const flushIndex = partialIdx === -1 ? this.buffer.length : partialIdx;
           if (flushIndex > 0) {
             const textToEmit = this.buffer.substring(0, flushIndex);
-            // Only emit as content if no tool calls have been emitted yet
-            if (this.emittedToolCallCount === 0) {
-              result.text += textToEmit;
-            }
+            // Emit trailing content even after a tool call. This preserves the
+            // full assistant turn for streaming clients.
+            result.text += textToEmit;
             this.buffer = this.buffer.substring(flushIndex);
           }
           break;
@@ -241,8 +239,11 @@ export class StreamingToolParser {
           this.emittedToolCallCount++;
           this.pendingLeadIn = '';
         } else {
-          // Recovery failed. Restore lead-in text if no tools were emitted.
-          console.warn('[parser] Dropping unrecoverable unclosed tool call at end of stream');
+          // Recovery failed. Preserve the raw model output for inspection.
+          console.warn('[parser] Preserving unrecoverable unclosed tool call at end of stream');
+          if (this.emittedToolCallCount === 0) {
+            result.text += `${this.currentOpenTag}${this.buffer}${TOOL_END}`;
+          }
           if (this.emittedToolCallCount === 0 && this.pendingLeadIn.trim().length > 0) {
             result.text += this.pendingLeadIn;
           }
@@ -346,10 +347,10 @@ export class StreamingToolParser {
       }
     }
 
-    // 4) Tool call is malformed and unrecoverable.
-    // Never leak internal XML to user-visible content.
-    // Restore lead-in text if no tools were emitted.
-    console.warn('[parser] Dropping malformed tool call block');
+    // 4) Tool call is malformed and unrecoverable. Preserve the model output
+    // so callers can inspect it instead of silently losing user-visible text.
+    console.warn('[parser] Preserving malformed tool call block');
+    result.text += `${this.currentOpenTag}${content}${TOOL_END}`;
     if (this.emittedToolCallCount === 0 && this.pendingLeadIn.trim().length > 0) {
       result.text += this.pendingLeadIn;
     }

@@ -172,7 +172,7 @@ const toolDefinitions = [
   }
 ];
 
-test('Agentic Stress Test: >30 messages multi-turn using the REAL live API', async () => {
+test('Agentic Stress Test: >30 messages multi-turn using the REAL live API', { skip: process.env.RUN_LIVE_QWEN_TESTS !== '1' }, async () => {
   const DEFAULT_PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
   const port = await getFreePort(DEFAULT_PORT);
   

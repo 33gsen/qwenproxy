@@ -1,7 +1,7 @@
 {
   "name": "qwenproxy",
   "version": "1.0.0",
-  "description": "",
+  "description": "OpenAI-compatible local gateway for isolated Qwen Chat sessions",
   "main": "index.js",
   "scripts": {
     "start": "npx tsx src/index.ts",
@@ -12,10 +12,11 @@
     "login:firefox": "npx tsx src/login.ts --browser=firefox",
     "login:chrome": "npx tsx src/login.ts --browser=chrome",
     "login:edge": "npx tsx src/login.ts --browser=edge",
-    "test": "npx tsx --test src/**/*.test.ts"
+    "test": "npx tsx --test src/**/*.test.ts",
+    "typecheck": "tsc --noEmit"
   },
-  "keywords": [],
-  "author": "Pedro Farias",
+  "keywords": ["qwen", "openai-compatible", "playwright", "streaming", "tool-calling"],
+  "author": "Guilherme Alves Gama de Souza",
   "license": "ISC",
   "dependencies": {
     "@hono/node-server": "^2.0.3",
