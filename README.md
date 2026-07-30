@@ -1,244 +1,81 @@
 # QwenProxy
 
-> An unofficial, self-hosted OpenAI-compatible gateway for Qwen Chat sessions.
->
-> This project is an independent adaptation of [qwenproxy](https://github.com/pedrofariasx/qwenproxy). It is not affiliated with Qwen, Alibaba, or any upstream project.
+OpenAI-compatible gateway for Qwen Chat sessions, built for local agent runtimes that need streaming, tool calling and isolated conversation state.
 
-QwenProxy exposes a small local API for OpenAI-compatible clients while keeping browser-backed Qwen sessions isolated per agent. It is designed as a focused systems project: session lifecycle, streaming translation, tool-call parsing, and safe local execution boundaries.
+The project translates the OpenAI Chat Completions contract into a browser-backed Qwen session while keeping credentials, cookies and browser profiles on the operator's machine.
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue)](https://www.typescriptlang.org/)
-[![Hono](https://img.shields.io/badge/Hono-4.12-green)](https://hono.dev/)
-[![Playwright](https://img.shields.io/badge/Playwright-1.60-blueviolet)](https://playwright.dev/)
-[![License: ISC](https://img.shields.io/badge/License-ISC-yellow.svg)](LICENSE)
+## Highlights
 
----
+- OpenAI-compatible `/v1/models` and `/v1/chat/completions` endpoints
+- Streaming and non-streaming responses with reasoning content
+- Tool calling with resilient incremental XML/JSON parsing
+- Isolated sessions for agents and concurrent-request protection
+- Local Playwright profile with explicit session lifecycle
+- Deterministic unit tests that never launch a browser
+- Opt-in live stress tests for environments with Qwen access
 
-## Design goals
-
-O qwenproxy original usa **interceptação de navegador** — digita texto, clica em "Enviar", espera a API do Qwen disparar, e captura headers anti-bot (`bx-ua`, `bx-umidtoken`, `bx-v`). Isso leva **5-10 segundos por request** e quebra toda vez que o Qwen muda o CSS da página.
-
-The gateway authenticates once, reuses a scoped session cookie, and keeps the browser boundary in one service. API requests are translated into Qwen's streaming format without coupling the public interface to page selectors.
-
-```
-┌─────────────────────────────────────────────────────┐
-│ ANTES (original):                                   │
-│ Browser → digita → clica → intercepta → USA headers │
-│ Tempo: 5-10s por request. Frágil (CSS-dependente).  │
-├─────────────────────────────────────────────────────┤
-│ AGORA (este fork):                                  │
-│ Login 1x via API → cookie salvo → chamadas diretas  │
-│ Tempo: ~1s por request. Zero dependência de UI.     │
-└─────────────────────────────────────────────────────┘
-```
-
-The upstream session is treated as an implementation detail. Credentials and browser profiles stay local and are never committed.
-
----
-
-## ✨ Features
-
-- **OpenAI API Compatible**: Interface compatível com `/v1/chat/completions` e `/v1/models`.
-- **Reasoning Support**: Suporte completo ao modo de pensamento (thinking) dos modelos Qwen.
-- **Tool Execution**: Sistema de execução de ferramentas locais integrado ao fluxo do chat.
-- **Session Persistence**: Login persistente com armazenamento de perfil do navegador em `qwen_profile/`.
-- **Network Visibility**: Exibe URLs local e de rede (IP) ao iniciar o servidor.
-- **Browser Selection**: Escolha entre Chrome, Firefox, Edge ou Chromium para execução.
-- **Docker Ready**: Deploy simplificado com suporte a Docker e Docker Compose.
-- **Auto-Login**: Login automático via credenciais `.env` com recuperação de sessão.
-- **Stream Options**: Suporte a `include_usage` em streaming responses.
-
----
-
-## 🏗️ Arquitetura
+## Architecture
 
 ```mermaid
-graph TD
-    Client[Cliente OpenAI/SDK] -->|HTTP| Proxy[QwenProxy]
-    Proxy -->|/v1/chat/completions| Handler[Chat Handler]
-    Handler --> Qwen[chat.qwen.ai]
-    Handler --> Playwright[Playwright Service]
-    Playwright --> Browser[Browser Instance]
-    Handler --> Tools[Tools Executor]
-    Tools --> Registry[Tool Registry]
-    
-    subgraph "Configuração"
-        Env[.env] --> Proxy
-        Profile[qwen_profile/] --> Playwright
-    end
+flowchart TD
+    Client[OpenAI-compatible client] --> API[Hono HTTP API]
+    API --> Chat[Chat completions handler]
+    API --> Models[Models endpoint]
+    Chat --> Sessions[Session manager]
+    Chat --> Parser[Streaming tool parser]
+    Chat --> Upstream[Qwen upstream service]
+    Sessions --> Browser[Playwright browser context]
+    Browser --> Qwen[chat.qwen.ai]
+    Sessions --> Profile[(Local browser profile)]
+    Parser --> Response[OpenAI-compatible SSE/JSON response]
+    Upstream --> Response
 ```
 
----
+## Repository layout
 
-## 📋 Pré-requisitos
+```text
+src/
+├── index.ts              HTTP server and middleware
+├── routes/chat.ts        OpenAI-compatible chat endpoint
+├── services/qwen.ts      Qwen session and upstream requests
+├── services/playwright.ts Browser lifecycle and local profile
+├── tools/parser.ts       Incremental tool-call parser
+├── runtime/              Agent execution helpers
+└── tests/                Unit and integration tests
+```
 
-| Dependência | Versão Mínima | Instalação |
-|------------|--------------|-----------|
-| Node.js | v20.x | [nvm](https://github.com/nvm-sh/nvm) |
-| npm | v9.x | Incluído com Node.js |
-| Playwright | - | `npx playwright install` |
-| Docker (opcional) | v24.x | [Docker Docs](https://docs.docker.com/get-docker/) |
+## Run locally
 
----
-
-## 🚀 Instalação
-
-### Via npm
+Requirements: Node.js 20+ and a local Qwen browser session.
 
 ```bash
-# Clonar repositório
-git clone https://github.com/pedrofariasx/qwenproxy.git
-cd qwenproxy
-
-# Instalar dependências
-npm install
-
-# Instalar browsers do Playwright
-npx playwright install
+npm ci
+cp .env.example .env
+npm run dev
 ```
 
-### Via Docker
+The service listens on the port configured in `.env`. Keep credentials and browser data outside version control.
+
+## Verification
 
 ```bash
-# Iniciar containers
-docker-compose up -d
+npm run typecheck
+npm test
 ```
 
----
-
-## ⚙️ Configuração
-
-Crie o arquivo `.env` na raiz do projeto:
-
-```env
-# Porta do servidor (default: 3000)
-PORT=3000
-
-# Chave de API para proteger os endpoints (opcional)
-API_KEY=sua-chave-secreta-aqui
-
-# Credenciais Qwen (para login automático)
-QWEN_EMAIL=seu-email@exemplo.com
-QWEN_PASSWORD=sua-senha-aqui
-
-# Navegador padrão (chromium, firefox, chrome, edge)
-BROWSER=chromium
-```
-
----
-
-## 📡 Uso e Comandos
-
-### Inicialização do Servidor
+The default test suite uses a Playwright mock and never opens Chrome. Live API stress tests are intentionally disabled unless explicitly enabled:
 
 ```bash
-# Iniciar com o navegador padrão (Chromium)
-npm start
-
-# Iniciar com navegadores específicos
-npm run start:chrome
-npm run start:firefox
-npm run start:edge
+RUN_LIVE_QWEN_TESTS=1 npm test
 ```
 
-Ao iniciar, o console exibirá:
-```txt
-🚀 QwenProxy started!
-- Local:   http://localhost:3000
-- Network: http://192.168.1.10:3000
+## Design notes
 
-Available Routes:
-- [GET] /health
-- [POST] /v1/chat/completions
-- [GET] /v1/models
-```
+- Upstream rate-limit errors are returned with an explicit status and message.
+- Streaming usage metadata is emitted in the final SSE event.
+- Malformed or fragmented model output is preserved for observability instead of being silently discarded.
+- Browser startup is isolated behind a test switch so CI remains headless and deterministic.
 
-### Autenticação de Sessão (Login)
+## License and attribution
 
-Se não usar credenciais no `.env`, realize o login manual:
-```bash
-npm run login
-# Ou com browser específico
-npm run login:firefox
-```
-
----
-
-## 📡 API Reference
-
-### Chat Completions
-
-```http
-POST /v1/chat/completions
-Content-Type: application/json
-Authorization: Bearer sua-chave
-```
-
-**Modelos Suportados**:
-- `qwen-plus`: Modelo padrão com raciocínio habilitado.
-- `qwen-plus-no-thinking`: Versão sem o bloco de pensamento.
-- `qwen-max`, `qwen-turbo`, etc. (conforme disponibilidade na conta).
-
----
-
-## 💻 Exemplos de Integração
-
-### OpenAI SDK (Node.js)
-
-```typescript
-import OpenAI from 'openai';
-
-const openai = new OpenAI({
-  baseURL: 'http://localhost:3000/v1',
-  apiKey: process.env.API_KEY || 'sk-no-key-required'
-});
-
-const completion = await openai.chat.completions.create({
-  model: 'qwen-plus',
-  messages: [{ role: 'user', content: 'Explique como funciona o Playwright.' }]
-});
-
-console.log(completion.choices[0].message.content);
-```
-
----
-
-## 📁 Estrutura do Projeto
-
-```
-qwenproxy/
-├── src/
-│   ├── index.ts              # Entry point e servidor Hono
-│   ├── routes/
-│   │   └── chat.ts          # Handler compatível com OpenAI
-│   ├── services/
-│   │   ├── qwen.ts          # Integração com a API do Qwen
-│   │   └── playwright.ts    # Automação de navegador
-│   ├── tools/
-│   │   ├── executor.ts      # Execução de ferramentas
-│   │   └── registry.ts      # Registro de tools
-│   └── login.ts             # Script de autenticação
-├── qwen_profile/            # Armazenamento da sessão (gitignored)
-├── Dockerfile                # Configuração Docker
-└── package.json             # Scripts e dependências
-```
-
----
-
-## 🔍 Troubleshooting
-
-- **Endereço em uso**: Verifique se a porta `3000` está livre ou altere o `PORT` no `.env`.
-- **Erro de Navegador**: Se um navegador não abrir, certifique-se de que ele está instalado (`npx playwright install`).
-- **Sessão Expirada**: Execute `npm run login` novamente para renovar os cookies.
-
----
-
-## ⚠️ Disclaimer
-
-> Este projeto é fornecido estritamente para fins educacionais e de pesquisa.
-
-Os autores não incentivam ou endossam:
-- Violação dos Termos de Serviço da plataforma Qwen.
-- Automação não autorizada em larga escala.
-- Uso para atividades maliciosas.
-
-**Use por sua conta e risco.**
+This repository is an independent adaptation of a browser-backed Qwen gateway. Upstream attribution and license notices are preserved where applicable. Review the license before redistributing a deployment.
