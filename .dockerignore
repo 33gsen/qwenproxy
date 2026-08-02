@@ -3,5 +3,16 @@ npm-debug.log
 qwen_profile
 dist
 .env
+.env.*
 .git
-README.md
+.hermes
+src/tests
+*.patch
+*.diff
+*.log
+*.pem
+*.key
+*.crt
+*.sqlite
+session.json
+*.tmp-*

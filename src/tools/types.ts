@@ -8,8 +8,9 @@
  * JSON Schema definition following the OpenAI function calling spec.
  */
 export interface JsonSchema {
-  type: string;
+  type?: string;
   properties?: Record<string, JsonSchema>;
+  patternProperties?: Record<string, JsonSchema>;
   items?: JsonSchema;
   required?: string[];
   enum?: unknown[];
@@ -81,6 +82,7 @@ export interface ToolContext {
   /** The model being used */
   model: string;
   /** Custom state or services can be attached here */
+  signal?: AbortSignal;
   [key: string]: any;
 }
 

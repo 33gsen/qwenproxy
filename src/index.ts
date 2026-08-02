@@ -15,7 +15,22 @@ import { networkInterfaces } from 'os';
 
 dotenv.config();
 export const app = new Hono();
-app.use('*', cors());
+const corsOrigin = process.env.CORS_ORIGIN?.trim();
+if (corsOrigin) app.use('*', cors({ origin: corsOrigin }));
+
+export function getServerHost(value = process.env.HOST): string {
+  return value?.trim() || '127.0.0.1';
+}
+
+function isLoopbackHost(host: string): boolean {
+  return host === '127.0.0.1' || host === 'localhost' || host === '::1';
+}
+
+export function assertSafeServerBinding(host: string, apiKey = process.env.API_KEY): void {
+  if (!isLoopbackHost(host) && !apiKey?.trim()) {
+    throw new Error('Refusing non-loopback HOST without API_KEY. Set API_KEY or bind to 127.0.0.1.');
+  }
+}
 
 function getNetworkAddress() {
   const interfaces = networkInterfaces();
@@ -28,7 +43,7 @@ function getNetworkAddress() {
 }
 
 app.use('/v1/*', async (c, next) => {
-  const apiKey = process.env.API_KEY;
+  const apiKey = process.env.API_KEY?.trim();
   if (!apiKey) return await next();
   return bearerAuth({ token: apiKey })(c, next);
 });
@@ -38,11 +53,11 @@ app.use('/v1/*', async (c, next) => {
 app.get('/health', (c) => c.json({ status: 'ok' }));
 
 app.get('/v1/models', async (c) => {
-  try { const models = await fetchQwenModels(); return c.json({ object: 'list', data: models }); }
+  try { const models = await fetchQwenModels(c.req.raw.signal); return c.json({ object: 'list', data: models }); }
   catch (err: any) { return c.json({ error: { message: err.message } }, 500); }
 });
 
-app.post('/v1/chat/completions', chatCompletions);
+app.post('/v1/chat/completions', (c) => chatCompletions(c));
 
 // Session management (multi-agent support)
 app.get('/v1/session', sessionInfo);
@@ -64,10 +79,14 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   initPlaywright(process.env.HEADLESS !== 'false', browserType).then(() => {
     console.log(`[QwenProxy] Session ready (${browserType}).`);
     const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+    const host = getServerHost();
+    assertSafeServerBinding(host);
     const networkIP = getNetworkAddress();
     console.log('\n🚀 QwenProxy Agentic started!');
-    console.log(`- Local:   http://localhost:${port}`);
-    if (networkIP) console.log(`- Network: http://${networkIP}:${port}`);
+    console.log(`- Server:  http://${host}:${port}`);
+    if (networkIP && !isLoopbackHost(host)) {
+      console.log(`- Network: http://${networkIP}:${port}`);
+    }
     console.log('\nRoutes:');
     console.log('  [GET]    /health');
     console.log('  [GET]    /v1/models');
@@ -80,7 +99,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     console.log('\nSession headers:');
     console.log('  X-Session-Id: <id>   → use specific session');
     console.log('  X-New-Session: true  → create fresh session\n');
-    serve({ fetch: app.fetch, port });
+    serve({ fetch: app.fetch, hostname: host, port });
   }).catch((err: any) => {
     console.error('[QwenProxy] Failed:', err.message);
     process.exit(1);

@@ -73,6 +73,34 @@ test('StreamingToolParser: preserves tags in non-tool text', () => {
   assert.strictEqual(res2.toolCalls[0].name, 'r');
 });
 
+test('StreamingToolParser flushes a truncated tool block after a completed tool call', () => {
+  const parser = new StreamingToolParser();
+  parser.feed('<tool_call>{"name":"known","arguments":{}}</tool_call>');
+  parser.feed('<tool_call>NOT_JSON');
+  assert.equal(parser.flush().text, '<tool_call>NOT_JSON</tool_call>');
+});
+
+test('StreamingToolParser does not emit a tool name outside the supplied definitions', () => {
+  const parser = new StreamingToolParser([{
+    type: 'function',
+    function: { name: 'known', parameters: { type: 'object' } },
+  }]);
+  const result = parser.feed('<tool_call>{"name":"unknown","arguments":{}}</tool_call>');
+  assert.equal(result.toolCalls.length, 0);
+  assert.match(result.text, /unknown/);
+});
+
+test('StreamingToolParser does not recover an unknown truncated XML tool call', () => {
+  const parser = new StreamingToolParser([{
+    type: 'function',
+    function: { name: 'known', parameters: { type: 'object' } },
+  }]);
+  parser.feed('<tool_call name="secret"><parameter name="x">1');
+  const result = parser.flush();
+  assert.deepStrictEqual(result.toolCalls, []);
+  assert.match(result.text, /secret/);
+});
+
 test('StreamingToolParser: handles multiple tool calls in array format', () => {
   const parser = new StreamingToolParser();
   
@@ -86,4 +114,25 @@ test('StreamingToolParser: handles multiple tool calls in array format', () => {
   assert.strictEqual(result.toolCalls[0].name, 'bash');
   assert.strictEqual(result.toolCalls[1].name, 'read');
   assert.strictEqual(result.toolCalls[0].arguments.command, 'ls');
+});
+
+test('StreamingToolParser preserves special XML parameter names without changing the prototype', () => {
+  const parser = new StreamingToolParser();
+  const result = parser.feed('<tool_call name="danger"><parameter name="__proto__">{"admin":"bypassed"}</parameter></tool_call>');
+  const args = result.toolCalls[0]?.arguments as Record<string, unknown>;
+
+  assert.equal(result.toolCalls.length, 1);
+  assert.equal(Object.getPrototypeOf(args), Object.prototype);
+  assert.equal(Object.prototype.hasOwnProperty.call(args, '__proto__'), true);
+  assert.equal((args as { admin?: string }).admin, undefined);
+});
+
+test('StreamingToolParser rejects invalid JSON arguments instead of executing an empty object', () => {
+  const parser = new StreamingToolParser([{
+    type: 'function',
+    function: { name: 'dangerous', parameters: { type: 'object' } },
+  }]);
+  const result = parser.feed('<tool_call>{"name":"dangerous","arguments":"not-json"}</tool_call>');
+  assert.deepEqual(result.toolCalls, []);
+  assert.match(result.text, /not-json/);
 });

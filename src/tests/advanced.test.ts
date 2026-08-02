@@ -35,7 +35,7 @@ test('multiturn-thinking-tools: maintains reasoning_content history', async () =
         c.close();
       }
     });
-    return new Response(stream, { status: 200 });
+    return new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } });
   });
 
   try {
@@ -77,14 +77,14 @@ test('streaming-whitespace: preserves exact whitespace', async () => {
         c.close();
       }
     });
-    return new Response(stream, { status: 200 });
+    return new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } });
   });
 
   try {
     const req = new Request('http://localhost/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'qwen3.6-plus', messages: [{role: 'user', content: 'test'}], stream: true })
+      body: JSON.stringify({ model: 'qwen3.6-plus', messages: [{role: 'user', content: 'test'}], stream: true, stream_options: { include_usage: true } })
     });
     
     const res = await app.fetch(req);
@@ -123,14 +123,14 @@ test('caching-streaming and cache-control: returns prompt_tokens_details', async
         c.close();
       }
     });
-    return new Response(stream, { status: 200 });
+    return new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } });
   });
 
   try {
     const req = new Request('http://localhost/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'qwen3.6-plus', messages: [{role: 'user', content: 'test'}], stream: true })
+      body: JSON.stringify({ model: 'qwen3.6-plus', messages: [{role: 'user', content: 'test'}], stream: true, stream_options: { include_usage: true } })
     });
     
     const res = await app.fetch(req);
@@ -179,7 +179,7 @@ test('session-parent-tracking: appends messages using response message_id as par
         c.close();
       }
     });
-    return new Response(stream, { status: 200 });
+    return new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } });
   });
 
   try {

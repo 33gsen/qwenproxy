@@ -41,6 +41,15 @@ function coerceParameterValue(rawValue: string): unknown {
   return value;
 }
 
+function defineOwnProperty(target: Record<string, unknown>, key: string, value: unknown): void {
+  Object.defineProperty(target, key, {
+    configurable: true,
+    enumerable: true,
+    value,
+    writable: true,
+  });
+}
+
 /**
  * Extract tool name from the opening tag attribute or a <name> child element.
  */
@@ -89,7 +98,7 @@ function parseXmlParameterToolCall(
   const parameterRe = /<parameter\b[^>]*\bname\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/parameter>/gi;
   let match: RegExpExecArray | null;
   while ((match = parameterRe.exec(block)) !== null) {
-    args[match[1]] = coerceParameterValue(match[2]);
+    defineOwnProperty(args, match[1], coerceParameterValue(match[2]));
   }
 
   if (Object.keys(args).length === 0) return null;
@@ -116,7 +125,7 @@ function parseRecoverableXmlToolCall(
   let match: RegExpExecArray | null;
   let lastClosedEnd = 0;
   while ((match = closedParameterRe.exec(block)) !== null) {
-    args[match[1]] = coerceParameterValue(match[2]);
+    defineOwnProperty(args, match[1], coerceParameterValue(match[2]));
     lastClosedEnd = closedParameterRe.lastIndex;
   }
 
@@ -124,7 +133,7 @@ function parseRecoverableXmlToolCall(
   const tail = block.substring(lastClosedEnd);
   const unclosedMatch = tail.match(/<parameter\b[^>]*\bname\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*)$/i);
   if (unclosedMatch) {
-    args[unclosedMatch[1]] = coerceParameterValue(unclosedMatch[2]);
+    defineOwnProperty(args, unclosedMatch[1], coerceParameterValue(unclosedMatch[2]));
   }
 
   if (Object.keys(args).length === 0) return null;
@@ -241,25 +250,21 @@ export class StreamingToolParser {
         } else {
           // Recovery failed. Preserve the raw model output for inspection.
           console.warn('[parser] Preserving unrecoverable unclosed tool call at end of stream');
-          if (this.emittedToolCallCount === 0) {
-            result.text += `${this.currentOpenTag}${this.buffer}${TOOL_END}`;
-          }
-          if (this.emittedToolCallCount === 0 && this.pendingLeadIn.trim().length > 0) {
+          result.text += `${this.currentOpenTag}${this.buffer}${TOOL_END}`;
+          if (this.pendingLeadIn.trim().length > 0) {
             result.text += this.pendingLeadIn;
           }
           this.pendingLeadIn = '';
         }
       } else {
         // Empty tool call block - restore lead-in
-        if (this.emittedToolCallCount === 0 && this.pendingLeadIn.trim().length > 0) {
+        if (this.pendingLeadIn.trim().length > 0) {
           result.text += this.pendingLeadIn;
         }
         this.pendingLeadIn = '';
       }
     } else {
-      if (this.emittedToolCallCount === 0) {
-        result.text += this.buffer;
-      }
+      result.text += this.buffer;
     }
 
     this.buffer = '';
@@ -291,7 +296,7 @@ export class StreamingToolParser {
     if (!t) {
       // Empty tool call - malformed. Restore lead-in if possible.
       console.warn('[parser] Dropping empty tool call block');
-      if (this.emittedToolCallCount === 0 && this.pendingLeadIn.trim().length > 0) {
+      if (this.pendingLeadIn.trim().length > 0) {
         result.text += this.pendingLeadIn;
       }
       this.pendingLeadIn = '';
@@ -300,7 +305,7 @@ export class StreamingToolParser {
 
     // 1) Try Hermes-style XML <parameter> format first
     const xmlParsed = parseXmlParameterToolCall(t, this.currentOpenTag, this.tools);
-    if (xmlParsed) {
+    if (xmlParsed && (this.tools.length === 0 || this.tools.some(tool => tool.function.name === xmlParsed.name))) {
       result.toolCalls.push({
         id: `call_${uuidv4()}`,
         name: xmlParsed.name,
@@ -351,7 +356,7 @@ export class StreamingToolParser {
     // so callers can inspect it instead of silently losing user-visible text.
     console.warn('[parser] Preserving malformed tool call block');
     result.text += `${this.currentOpenTag}${content}${TOOL_END}`;
-    if (this.emittedToolCallCount === 0 && this.pendingLeadIn.trim().length > 0) {
+    if (this.pendingLeadIn.trim().length > 0) {
       result.text += this.pendingLeadIn;
     }
     this.pendingLeadIn = '';
@@ -360,7 +365,7 @@ export class StreamingToolParser {
   private tryRecoverToolCall(block: string): ParsedToolCall | null {
     // Try full parse first
     const xmlParsed = parseXmlParameterToolCall(block, this.currentOpenTag, this.tools);
-    if (xmlParsed) {
+    if (xmlParsed && (this.tools.length === 0 || this.tools.some(tool => tool.function.name === xmlParsed.name))) {
       return {
         id: `call_${uuidv4()}`,
         name: xmlParsed.name,
@@ -370,7 +375,7 @@ export class StreamingToolParser {
 
     // Try recoverable (unclosed parameters)
     const recovered = parseRecoverableXmlToolCall(block, this.currentOpenTag, this.tools);
-    if (recovered) {
+    if (recovered && (this.tools.length === 0 || this.tools.some(tool => tool.function.name === recovered.name))) {
       return {
         id: `call_${uuidv4()}`,
         name: recovered.name,
@@ -404,13 +409,16 @@ export class StreamingToolParser {
     
     const name = parsed.name || parsed.function?.name;
     if (!name || typeof name !== 'string') return null;
+    if (this.tools.length > 0 && !this.tools.some(tool => tool.function.name === name)) return null;
     
-    let args = parsed.arguments || parsed.function?.arguments || {};
+    const hasArguments = Object.prototype.hasOwnProperty.call(parsed, 'arguments')
+      || Object.prototype.hasOwnProperty.call(parsed.function || {}, 'arguments');
+    let args = hasArguments ? (Object.prototype.hasOwnProperty.call(parsed, 'arguments') ? parsed.arguments : parsed.function.arguments) : {};
     if (typeof args === 'string') {
       try { args = JSON.parse(args); }
-      catch { args = {}; }
+      catch { return null; }
     }
-    if (typeof args !== 'object' || args === null) args = {};
+    if (typeof args !== 'object' || args === null || Array.isArray(args)) return null;
 
     return {
       id: `call_${uuidv4()}`,

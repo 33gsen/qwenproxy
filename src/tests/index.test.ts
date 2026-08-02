@@ -60,7 +60,7 @@ test('Chat Completions endpoint with qwen3.6-plus (thinking enabled)', async () 
           c.close();
         }
       });
-      return new Response(stream, { status: 200 });
+      return new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } });
     }
     return originalFetch(input);
   };
@@ -189,7 +189,7 @@ test('Chat Completions returns a JSON chat.completion object for non-streaming r
           c.close();
         }
       });
-      return new Response(stream, { status: 200 });
+      return new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } });
     }
     return originalFetch(input);
   };
@@ -272,7 +272,7 @@ test('Chat Completions endpoint - Non-streaming (stream: false)', async () => {
           c.close();
         }
       });
-      return new Response(stream, { status: 200 });
+      return new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } });
     }
     return originalFetch(input);
   };

@@ -69,13 +69,23 @@ export interface MessageToolCall {
   function: ToolCallFunction;
 }
 
+export interface MessageContentPart {
+  type: string;
+  text?: string;
+  image_url?: { url: string; detail?: string } | string;
+  [key: string]: unknown;
+}
+
+export type MessageContent = string | null | MessageContentPart[] | Record<string, unknown>;
+
 export interface Message {
   role: string;
-  content: string | null;
+  content: MessageContent;
   tool_calls?: MessageToolCall[];
   tool_call_id?: string;
   name?: string;
   reasoning_content?: string;
+  [key: string]: unknown;
 }
 
 // ─── Request ───────────────────────────────────────────────────────────────────
@@ -86,6 +96,21 @@ export interface OpenAIRequest {
   stream?: boolean;
   tools?: FunctionToolDefinition[];
   tool_choice?: ToolChoice;
+  stream_options?: {
+    include_usage?: boolean;
+  };
+  max_tokens?: number;
+  max_completion_tokens?: number;
+  temperature?: number;
+  top_p?: number;
+  n?: number;
+  stop?: string | string[] | null;
+  presence_penalty?: number;
+  frequency_penalty?: number;
+  user?: string;
+  response_format?: { type: string; [key: string]: unknown };
+  seed?: number;
+  [key: string]: unknown;
 }
 
 // ─── Streaming Response ────────────────────────────────────────────────────────

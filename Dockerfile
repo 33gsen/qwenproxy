@@ -4,6 +4,7 @@ FROM mcr.microsoft.com/playwright:v1.60.0-jammy
 RUN apt-get update && apt-get install -y dumb-init && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+ENV NODE_ENV=production PORT=3000
 
 # Install dependencies first for better caching
 COPY package*.json ./
@@ -17,8 +18,7 @@ RUN chown -R pwuser:pwuser /app
 USER pwuser
 
 EXPOSE 3000
-ENV NODE_ENV=production PORT=3000
 
 # Use dumb-init to avoid zombie processes from Playwright
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
-CMD ["npx", "tsx", "src/index.ts"]
+CMD ["npm", "start"]
