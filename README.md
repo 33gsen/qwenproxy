@@ -2,6 +2,8 @@
 
 QwenProxy is a local, OpenAI-compatible gateway for Qwen Chat. It keeps the browser session on the operator's machine and exposes a familiar Chat Completions API for clients such as Hermes and other OpenAI-compatible applications.
 
+> **For AI agents only:** QwenProxy is a backend bridge for Hermes and other AI agent clients. It is not a standalone chat application or a public API for general human use.
+
 > Use this project only where Qwen's terms, your account policies, and applicable law allow it.
 
 **Architecture:** OpenAI/Hermes client → Hono API → session and request layer → Qwen via Playwright and HTTP → OpenAI-compatible JSON or SSE response.
